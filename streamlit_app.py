@@ -23,7 +23,7 @@ st.write("The name on your Smoothie will be:", name_on_order)
 cnx = st.connection("snowflake")
 session = cnx.session()
 
-# Get fruit options
+# Get fruit options from Snowflake
 my_dataframe = session.table(
     "smoothies.public.fruit_options"
 ).select(
@@ -58,27 +58,25 @@ if ingredients_list:
             "SEARCH_ON"
         ].iloc[0]
 
-        st.write(
-            "The search value for ",
-            fruit_chosen,
-            " is ",
-            search_on,
-            "."
-        )
-
-        # Display nutrition information
         st.subheader(fruit_chosen + " Nutrition Information")
 
+        # Get nutrition information from SmoothieFroot API
         smoothiefroot_response = requests.get(
             f"https://my.smoothiefroot.com/api/fruit/{search_on}"
         )
 
-        sf_df = st.dataframe(
-            data=smoothiefroot_response.json(),
-            use_container_width=True
-        )
+        # Display API response
+        if smoothiefroot_response.status_code == 200:
+            sf_df = st.dataframe(
+                data=smoothiefroot_response.json(),
+                use_container_width=True
+            )
+        else:
+            st.warning(
+                f"Nutrition information not available for {fruit_chosen}"
+            )
 
-    st.write(ingredients_string)
+    st.write("Selected ingredients:", ingredients_string)
 
 # Submit order
 if st.button("Submit Order"):
@@ -98,7 +96,10 @@ if st.button("Submit Order"):
 
         session.sql(
             my_insert_stmt,
-            params=[ingredients_string.strip(), name_on_order]
+            params=[
+                ingredients_string.strip(),
+                name_on_order
+            ]
         ).collect()
 
         st.success(
